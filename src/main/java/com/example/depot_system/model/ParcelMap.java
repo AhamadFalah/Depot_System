@@ -1,5 +1,6 @@
 package com.example.depot_system.model;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
@@ -22,7 +23,25 @@ public class ParcelMap {
         return parcels.size();
     }
 
-//    public List<Parcel> findParcelById(){
-//    }
+    public Parcel findParcelById(String parcelId) {
+        return parcels.get(parcelId);
+    }
+
+    public void updateParcelStatus(String parcelId, String status) {
+        Parcel parcel = parcels.get(parcelId);
+        if (parcel != null) {
+            parcel.setStatus(status);
+        }
+    }
+
+    public List<Parcel> getAllParcels() {
+        return new ArrayList<>(parcels.values());
+    }
+
+    public Parcel getParcel(String parcelId) {
+        return parcels.get(parcelId);
+    }
+
+
 
 }
