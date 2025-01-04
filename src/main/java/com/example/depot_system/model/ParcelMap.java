@@ -42,6 +42,24 @@ public class ParcelMap {
         return parcels.get(parcelId);
     }
 
+    public List<Parcel> getCollectedParcels() {
+        List<Parcel> collectedParcels = new ArrayList<>();
+        for (Parcel parcel : parcels.values()) {
+            if ("Collected".equalsIgnoreCase(parcel.getStatus())) {
+                collectedParcels.add(parcel);
+            }
+        }
+        return collectedParcels;
+    }
 
+    public List<Parcel> getUncollectedParcels() {
+        List<Parcel> uncollectedParcels = new ArrayList<>();
+        for (Parcel parcel : parcels.values()) {
+            if (!"Collected".equalsIgnoreCase(parcel.getStatus())) {
+                uncollectedParcels.add(parcel);
+            }
+        }
+        return uncollectedParcels;
+    }
 
 }
