@@ -38,6 +38,9 @@ public class Parcel {
         return daysInDepot;
     }
 
+    public void setStatus(String status) {
+        this.status = status;
+    }
 
     @Override
     public String toString() {
