@@ -1,4 +1,4 @@
-package com.example.depot_system.service;
+package com.example.depot_system.controller;
 
 import com.example.depot_system.model.Customer;
 import com.example.depot_system.model.Parcel;
