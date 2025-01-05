@@ -22,9 +22,7 @@ public class ParcelMap {
         return parcels.size();
     }
 
-    public Parcel findParcelById(String parcelId) {
-        return parcels.get(parcelId);
-    }
+
 
     public void updateParcelStatus(String parcelId, String status) {
         Parcel parcel = parcels.get(parcelId);
