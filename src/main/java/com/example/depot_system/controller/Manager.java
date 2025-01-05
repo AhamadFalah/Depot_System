@@ -40,8 +40,6 @@ public class Manager {
         }
     }
 
-
-
     private void loadParcels(String parcelFilename) {
         try (BufferedReader br = new BufferedReader(new FileReader(parcelFilename))) {
             String line;
@@ -76,10 +74,28 @@ public class Manager {
         }
     }
 
+    public void addNewParcel(Parcel parcel) {
+        if(parcelMap.findParcel(parcel.getParcelID()) != null){
+            System.out.println("Parcel already exists for customer: " + parcel.getParcelID());
+        }else {
+            parcelMap.addParcel(parcel);
+            System.out.println("New parcel added: " + parcel);
+        }
+    }
+
+    public void addNewCustomer(Customer customer) {
+        queueOfCustomers.add(customer);
+        System.out.println("New customer added: " + customer);
+    }
+
+
+
 
     public static void main(String[] args) {
         Manager manager = new Manager();
         manager.loadFiles("Custs (1).csv", "Parcels.csv");
         manager.processNextCustomer();
+        manager.addNewCustomer(new Customer("Falah Ahamad", 31, "X126"));
+        manager.addNewParcel(new Parcel("X126", 5.5, "10x10x10", "Pending", 3));
     }
 }
