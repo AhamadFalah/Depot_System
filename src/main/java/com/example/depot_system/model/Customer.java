@@ -11,6 +11,12 @@ public class Customer {
         this.parcelID = parcelID;
     }
 
+    public Customer(String name, String parcelID) {
+        this.name = name;
+        this.queueNumber = -1;
+        this.parcelID = parcelID;
+    }
+
     public String getName() {
         return name;
     }
@@ -21,6 +27,10 @@ public class Customer {
 
     public String getParcelID() {
         return parcelID;
+    }
+
+    public void setQueueNumber(int queueNumber) {
+        this.queueNumber = queueNumber;
     }
 
     @Override

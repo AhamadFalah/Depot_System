@@ -84,6 +84,8 @@ public class Manager {
     }
 
     public void addNewCustomer(Customer customer) {
+        int queueNumber = queueOfCustomers.size() + 1;
+        customer.setQueueNumber(queueNumber);
         queueOfCustomers.add(customer);
         System.out.println("New customer added: " + customer);
     }
@@ -95,7 +97,7 @@ public class Manager {
         Manager manager = new Manager();
         manager.loadFiles("Custs (1).csv", "Parcels.csv");
         manager.processNextCustomer();
-        manager.addNewCustomer(new Customer("Falah Ahamad", 31, "X126"));
+        manager.addNewCustomer(new Customer("Falah Ahamad", "X126"));
         manager.addNewParcel(new Parcel("X126", 5.5, "10x10x10", "Pending", 3));
     }
 }
