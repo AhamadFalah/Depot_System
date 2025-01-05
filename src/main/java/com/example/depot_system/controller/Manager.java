@@ -64,13 +64,7 @@ public class Manager {
             System.out.println("No customers in the queue.");
         } else {
             Customer customer = queueOfCustomers.getCustomer();
-            Parcel parcel = parcelMap.findParcel(customer.getParcelID());
-            if (parcel != null) {
-                System.out.println("Processing customer: " + customer);
-                System.out.println("Parcel details: " + parcel);
-            } else {
-                System.out.println("Parcel not found for customer: " + customer.getName());
-            }
+            worker.processCustomer(customer, parcelMap);
         }
     }
 
