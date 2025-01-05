@@ -8,6 +8,7 @@ import com.example.depot_system.model.QueueOfCustomers;
 import java.io.*;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Scanner;
 
 public class Manager {
     private QueueOfCustomers queueOfCustomers = new QueueOfCustomers();
@@ -65,25 +66,26 @@ public class Manager {
     public void processNextCustomer() {
         if (queueOfCustomers.isEmpty()) {
             System.out.println("No customers in the queue.");
-        } else {
-            Customer customer = queueOfCustomers.getCustomer();
-            Parcel parcel = parcelMap.findParcel(customer.getParcelID());
+            return;
+        }
+        Customer customer = queueOfCustomers.getCustomer();
+        Parcel parcel = parcelMap.findParcel(customer.getParcelID());
 
-            if (parcel != null && "Pending".equals(parcel.getStatus())) {
-                double fee = worker.processCustomer(customer, parcelMap);
-                collectedParcels.add(parcel);
-                collectedCustomers.add(customer);
-                totalFeesCollected += fee;
-            } else {
-                System.out.println("Parcel not found or already collected for customer: " + customer.getName());
-            }
+        if (parcel != null && "Pending".equals(parcel.getStatus())) {
+            double fee = worker.processCustomer(customer, parcelMap);
+            collectedParcels.add(parcel);
+            collectedCustomers.add(customer);
+            totalFeesCollected += fee;
+            System.out.println("Customer processed successfully: " + customer.getName());
+        } else {
+            System.out.println("Parcel not found or already collected for customer: " + customer.getName());
         }
     }
 
     public void addNewParcel(Parcel parcel) {
-        if(parcelMap.findParcel(parcel.getParcelID()) != null){
+        if (parcelMap.findParcel(parcel.getParcelID()) != null) {
             System.out.println("Parcel already exists for customer: " + parcel.getParcelID());
-        }else {
+        } else {
             parcelMap.addParcel(parcel);
             System.out.println("New parcel added: " + parcel);
         }
@@ -127,19 +129,67 @@ public class Manager {
         }
     }
 
+    public void addCustomerFromKeyboard() {
+        Scanner scanner = new Scanner(System.in);
 
+        System.out.println("Enter customer name:");
+        String name = scanner.nextLine().trim();
+
+        System.out.println("Enter parcel ID:");
+        String parcelID = scanner.nextLine().trim();
+
+        // Check if the parcel exists
+        Parcel parcel = parcelMap.findParcel(parcelID);
+
+        if (parcel == null) {
+            System.out.println("No parcel found with the given Parcel ID: " + parcelID);
+            return;
+        }
+
+        if ("Collected".equalsIgnoreCase(parcel.getStatus())) {
+            System.out.println("The parcel with ID " + parcelID + " has already been collected.");
+            return;
+        }
+
+        if (!parcel.getStatus().equalsIgnoreCase("Pending")) {
+            System.out.println("The parcel with ID " + parcelID + " is not marked as 'Pending'.");
+            return;
+        }
+
+        Customer customer = new Customer(name, parcelID);
+        queueOfCustomers.add(customer);
+
+        System.out.println("Customer added to the queue: " + customer);
+    }
+
+    public void processCustomerByParcelId(String parcelId) {
+
+        Customer customerToProcess = null;
+        for (Customer customer : queueOfCustomers.getCustomerQueue()) {
+            if (customer.getParcelID().equals(parcelId)) {
+                customerToProcess = customer;
+                break;
+            }
+        }
+
+        if (customerToProcess == null) {
+            System.out.println("No customer found with parcel ID: " + parcelId);
+        } else {
+            worker.processCustomer(customerToProcess, parcelMap);
+
+            queueOfCustomers.getCustomerQueue().remove(customerToProcess);
+
+            collectedCustomers.add(customerToProcess);
+
+            System.out.println("Customer processed and removed from the queue: " + customerToProcess);
+        }
+    }
 
 
     public static void main(String[] args) {
         Manager manager = new Manager();
         manager.loadFiles("Custs (1).csv", "Parcels.csv");
 
-        // Process all customers in the queue
-        while (!manager.queueOfCustomers.isEmpty()) {
-            manager.processNextCustomer();
-        }
-
-        // Generate report
-        manager.generateReport("DepotReport.txt");
     }
 }
+
