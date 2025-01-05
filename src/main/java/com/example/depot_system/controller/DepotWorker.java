@@ -13,7 +13,7 @@ public class DepotWorker {
         this.name = name;
     }
 
-    public void processCustomer(Customer customer, ParcelMap parcelMap) {
+    public double processCustomer(Customer customer, ParcelMap parcelMap) {
 
         Parcel parcel = parcelMap.findParcel(customer.getParcelID());
 
@@ -34,7 +34,9 @@ public class DepotWorker {
             } else {
                 System.out.println("Parcel not collected.");
             }
+            return fee;
         }
+        return 0;
     }
 
     public void releaseParcel(Parcel parcel, ParcelMap parcelMap, Customer customer) {

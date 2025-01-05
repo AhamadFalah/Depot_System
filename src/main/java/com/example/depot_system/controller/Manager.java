@@ -5,14 +5,17 @@ import com.example.depot_system.model.Parcel;
 import com.example.depot_system.model.ParcelMap;
 import com.example.depot_system.model.QueueOfCustomers;
 
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
+import java.io.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class Manager {
     private QueueOfCustomers queueOfCustomers = new QueueOfCustomers();
     private ParcelMap parcelMap = new ParcelMap();
     private DepotWorker worker = new DepotWorker("DepotWorker1");
+    private List<Parcel> collectedParcels = new ArrayList<>();
+    private List<Customer> collectedCustomers = new ArrayList<>();
+    private double totalFeesCollected = 0.0;
 
     public void loadFiles(String customerFilename, String parcelFilename) {
         loadCustomers(customerFilename);
@@ -64,7 +67,16 @@ public class Manager {
             System.out.println("No customers in the queue.");
         } else {
             Customer customer = queueOfCustomers.getCustomer();
-            worker.processCustomer(customer, parcelMap);
+            Parcel parcel = parcelMap.findParcel(customer.getParcelID());
+
+            if (parcel != null && "Pending".equals(parcel.getStatus())) {
+                double fee = worker.processCustomer(customer, parcelMap);
+                collectedParcels.add(parcel);
+                collectedCustomers.add(customer);
+                totalFeesCollected += fee;
+            } else {
+                System.out.println("Parcel not found or already collected for customer: " + customer.getName());
+            }
         }
     }
 
@@ -84,14 +96,50 @@ public class Manager {
         System.out.println("New customer added: " + customer);
     }
 
+    public void generateReport(String outputFilename) {
+        try (BufferedWriter writer = new BufferedWriter(new FileWriter(outputFilename))) {
+            writer.write("Depot System Report:\n");
+
+            writer.write("\nCollected Parcels:\n");
+            for (Parcel parcel : collectedParcels) {
+                double fee = worker.calculateFee(parcel);
+                writer.write(String.format("Parcel ID: %s, Fee: £%.2f, Status: %s\n", parcel.getParcelID(), fee, parcel.getStatus()));
+            }
+
+            writer.write("\nUncollected Parcels:\n");
+            for (Parcel parcel : parcelMap.getAllParcels()) {
+                if ("Pending".equals(parcel.getStatus())) {
+                    writer.write(parcel.toString() + "\n");
+                }
+            }
+
+            writer.write("\nSummary:\n");
+            long parcelsOverThreshold = parcelMap.getAllParcels().stream()
+                    .filter(parcel -> parcel.getDaysInDepot() > 5 && "Pending".equals(parcel.getStatus()))
+                    .count();
+            writer.write("Parcels in depot for more than 5 days: " + parcelsOverThreshold + "\n");
+
+            writer.write("Total fees collected: £" + String.format("%.2f", totalFeesCollected) + "\n");
+
+            System.out.println("Report generated: " + outputFilename);
+        } catch (IOException e) {
+            System.err.println("Error writing report: " + e.getMessage());
+        }
+    }
+
 
 
 
     public static void main(String[] args) {
         Manager manager = new Manager();
         manager.loadFiles("Custs (1).csv", "Parcels.csv");
-        manager.processNextCustomer();
-        manager.addNewCustomer(new Customer("Falah Ahamad", "X126"));
-        manager.addNewParcel(new Parcel("X126", 5.5, "10x10x10", "Pending", 3));
+
+        // Process all customers in the queue
+        while (!manager.queueOfCustomers.isEmpty()) {
+            manager.processNextCustomer();
+        }
+
+        // Generate report
+        manager.generateReport("DepotReport.txt");
     }
 }
