@@ -18,19 +18,19 @@ public class QueueOfCustomers {
         return customers.isEmpty();
     }
 
-    public int size(){
-    return customers.size();
+    public int size() {
+        return customers.size();
     }
 
-    public List<Customer> getCustomerQueue(){
+    public List<Customer> getCustomerQueue() {
         return new LinkedList<>(customers);
     }
 
-    public Customer getCustomer(){
-        if(!customers.isEmpty()){
+    public Customer getCustomer() {
+        if (!customers.isEmpty()) {
             Customer nextCustomer = customers.removeFirst();
             return nextCustomer;
-        }else{
+        } else {
             return null;
         }
     }

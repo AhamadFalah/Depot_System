@@ -19,7 +19,7 @@ public class ParcelMap {
         return parcels.get(parcelID);
     }
 
-    public int size(){
+    public int size() {
         return parcels.size();
     }
 

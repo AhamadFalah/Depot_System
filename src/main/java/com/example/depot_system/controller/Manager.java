@@ -4,6 +4,7 @@ import com.example.depot_system.model.Customer;
 import com.example.depot_system.model.Parcel;
 import com.example.depot_system.model.ParcelMap;
 import com.example.depot_system.model.QueueOfCustomers;
+import com.example.depot_system.util.Log;
 
 import java.io.*;
 import java.util.ArrayList;
@@ -17,10 +18,16 @@ public class Manager {
     private List<Parcel> collectedParcels = new ArrayList<>();
     private List<Customer> collectedCustomers = new ArrayList<>();
     private double totalFeesCollected = 0.0;
+    Log log = Log.getInstance();
 
     public void loadFiles(String customerFilename, String parcelFilename) {
+        log.logEvent("Loading customers from file: " + customerFilename);
         loadCustomers(customerFilename);
+        log.logEvent("Finished loading customers from file: " + customerFilename);
+
+        log.logEvent("Loading parcels from file: " + parcelFilename);
         loadParcels(parcelFilename);
+        log.logEvent("finished loading parcels from file: " + parcelFilename);
     }
 
     private void loadCustomers(String customerFilename) {
@@ -65,6 +72,7 @@ public class Manager {
 
     public void processNextCustomer() {
         if (queueOfCustomers.isEmpty()) {
+            log.logEvent("No customers in the queue.");
             System.out.println("No customers in the queue.");
             return;
         }
@@ -76,17 +84,21 @@ public class Manager {
             collectedParcels.add(parcel);
             collectedCustomers.add(customer);
             totalFeesCollected += fee;
+            log.logEvent("Processed customer: " + customer.getName() + " with Parcel ID: " + customer.getParcelID());
             System.out.println("Customer processed successfully: " + customer.getName());
         } else {
+            log.logEvent("Skipped customer: " + customer.getName() + ". Parcel not found or already collected.");
             System.out.println("Parcel not found or already collected for customer: " + customer.getName());
         }
     }
 
     public void addNewParcel(Parcel parcel) {
         if (parcelMap.findParcel(parcel.getParcelID()) != null) {
+            log.logEvent("Attempted to add a duplicate parcel: " + parcel.getParcelID());
             System.out.println("Parcel already exists for customer: " + parcel.getParcelID());
         } else {
             parcelMap.addParcel(parcel);
+            log.logEvent("Added new parcel: " + parcel.getParcelID());
             System.out.println("New parcel added: " + parcel);
         }
     }
@@ -95,10 +107,13 @@ public class Manager {
         int queueNumber = queueOfCustomers.size() + 1;
         customer.setQueueNumber(queueNumber);
         queueOfCustomers.add(customer);
+        log.logEvent("Added new customer: " + customer.getName() + " with Parcel ID: " + customer.getParcelID());
         System.out.println("New customer added: " + customer);
     }
 
     public void generateReport(String outputFilename) {
+
+        log.logEvent("Starting report generation: " + outputFilename);
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(outputFilename))) {
             writer.write("Depot System Report:\n");
 
@@ -116,15 +131,15 @@ public class Manager {
             }
 
             writer.write("\nSummary:\n");
-            long parcelsOverThreshold = parcelMap.getAllParcels().stream()
-                    .filter(parcel -> parcel.getDaysInDepot() > 5 && "Pending".equals(parcel.getStatus()))
-                    .count();
+            long parcelsOverThreshold = parcelMap.getAllParcels().stream().filter(parcel -> parcel.getDaysInDepot() > 5 && "Pending".equals(parcel.getStatus())).count();
             writer.write("Parcels in depot for more than 5 days: " + parcelsOverThreshold + "\n");
 
             writer.write("Total fees collected: £" + String.format("%.2f", totalFeesCollected) + "\n");
 
+            log.logEvent("Report generated successfully: " + outputFilename);
             System.out.println("Report generated: " + outputFilename);
         } catch (IOException e) {
+            log.logEvent("Error writing report: " + e.getMessage());
             System.err.println("Error writing report: " + e.getMessage());
         }
     }
@@ -142,27 +157,31 @@ public class Manager {
         Parcel parcel = parcelMap.findParcel(parcelID);
 
         if (parcel == null) {
+            log.logEvent("Failed to add customer: " + name + ". Parcel ID: " + parcelID + " not found.");
             System.out.println("No parcel found with the given Parcel ID: " + parcelID);
             return;
         }
 
         if ("Collected".equalsIgnoreCase(parcel.getStatus())) {
+            log.logEvent("Failed to add customer: " + name + ". Parcel ID: " + parcelID + " already collected.");
             System.out.println("The parcel with ID " + parcelID + " has already been collected.");
             return;
         }
 
         if (!parcel.getStatus().equalsIgnoreCase("Pending")) {
+            log.logEvent("Failed to add customer: " + name + ". Parcel ID: " + parcelID + " is not marked as 'Pending'.");
             System.out.println("The parcel with ID " + parcelID + " is not marked as 'Pending'.");
             return;
         }
 
         Customer customer = new Customer(name, parcelID);
         queueOfCustomers.add(customer);
-
+        log.logEvent("Customer added by keyboard: " + customer.getName() + " with Parcel ID: " + customer.getParcelID());
         System.out.println("Customer added to the queue: " + customer);
     }
 
     public void processCustomerByParcelId(String parcelId) {
+        log.logEvent("Attempting to process customer with Parcel ID: " + parcelId);
 
         Customer customerToProcess = null;
         for (Customer customer : queueOfCustomers.getCustomerQueue()) {
@@ -173,13 +192,20 @@ public class Manager {
         }
 
         if (customerToProcess == null) {
+            log.logEvent("No customer found with Parcel ID: " + parcelId);
             System.out.println("No customer found with parcel ID: " + parcelId);
         } else {
-            worker.processCustomer(customerToProcess, parcelMap);
+            log.logEvent("Found customer: " + customerToProcess.getName() + " with Parcel ID: " + parcelId);
 
+            double fee = worker.processCustomer(customerToProcess, parcelMap);
             queueOfCustomers.getCustomerQueue().remove(customerToProcess);
 
             collectedCustomers.add(customerToProcess);
+            totalFeesCollected += fee;
+
+            log.logEvent("Customer processed successfully: " + customerToProcess.getName());
+            log.logEvent("Customer removed from the queue: " + customerToProcess.getName());
+            log.logEvent("Fee collected: £" + String.format("%.2f", fee));
 
             System.out.println("Customer processed and removed from the queue: " + customerToProcess);
         }
@@ -188,8 +214,30 @@ public class Manager {
 
     public static void main(String[] args) {
         Manager manager = new Manager();
+        Log log = Log.getInstance();
+
+        log.logEvent("Application started.");
         manager.loadFiles("Custs (1).csv", "Parcels.csv");
 
+
+        Parcel newParcel = new Parcel("X123", 10.0, "20x15x10", "Pending", 2);
+        manager.addNewParcel(newParcel);
+
+        Customer newCustomer = new Customer("Falah Ahamad", "X123");
+        manager.addNewCustomer(newCustomer);
+
+        manager.processNextCustomer();
+
+        manager.processCustomerByParcelId("X123");
+
+        String reportFileName = "DepotReportss.txt";
+        manager.generateReport(reportFileName);
+
+        String logFileName = "DepotSystemLogs.txt";
+        log.saveToFile(logFileName);
+        System.out.println("Logs saved to file: " + logFileName);
+        log.logEvent("Application ended.");
     }
+
 }
 
