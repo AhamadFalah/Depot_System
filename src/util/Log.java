@@ -1,4 +1,4 @@
-package com.example.depot_system.util;
+package util;
 
 import java.io.BufferedWriter;
 import java.io.FileWriter;
@@ -9,7 +9,7 @@ public class Log {
     private StringBuilder logBuffer = new StringBuilder();
 
     private Log() {
-    };
+    }
 
     public static Log getInstance() {
         if (instance == null) {
@@ -25,15 +25,13 @@ public class Log {
     public void saveToFile(String fileName) {
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(fileName))) {
             writer.write(logBuffer.toString());
-            System.out.println("Logs saved to file: " + fileName);
         } catch (IOException e) {
-            System.err.println("Error saving logs to file: " + e.getMessage());
+            System.err.println("Error saving log: " + e.getMessage());
         }
     }
 
     public String getAllLogEvents() {
         return logBuffer.toString();
     }
-
-
 }
+

@@ -1,17 +1,25 @@
-package com.example.depot_system.model;
+package model;
+
+import util.Observable;
 
 import java.util.LinkedList;
 import java.util.List;
 
-public class QueueOfCustomers {
+public class QueueOfCustomers extends Observable {
     private LinkedList<Customer> customers = new LinkedList<>();
 
     public void add(Customer customer) {
         customers.add(customer);
+        notifyObservers("QueueOfCustomers");
     }
 
-    public Customer removeCustomer() {
-        return customers.poll();
+    public Customer getCustomer() {
+        if (!customers.isEmpty()) {
+            Customer c = customers.removeFirst();
+            notifyObservers("QueueOfCustomers");
+            return c;
+        }
+        return null;
     }
 
     public boolean isEmpty() {
@@ -24,14 +32,5 @@ public class QueueOfCustomers {
 
     public List<Customer> getCustomerQueue() {
         return new LinkedList<>(customers);
-    }
-
-    public Customer getCustomer() {
-        if (!customers.isEmpty()) {
-            Customer nextCustomer = customers.removeFirst();
-            return nextCustomer;
-        } else {
-            return null;
-        }
     }
 }

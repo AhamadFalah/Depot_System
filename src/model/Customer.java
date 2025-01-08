@@ -1,4 +1,4 @@
-package com.example.depot_system.model;
+package model;
 
 public class Customer {
     private String name;
