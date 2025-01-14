@@ -25,11 +25,19 @@ public class CurrentParcelPanel extends JPanel {
         refreshDisplay();
     }
 
+
     private void refreshDisplay() {
         if (currentParcel == null) {
             showNoParcelMessage();
         } else {
-            parcelDetailsArea.setText(String.format("Parcel ID: %s\nWeight: %.2f\nDimensions: %s\nStatus: %s\nDays in Depot: %d", currentParcel.getParcelID(), currentParcel.getWeight(), currentParcel.getDimensions(), currentParcel.getStatus(), currentParcel.getDaysInDepot()));
+            parcelDetailsArea.setText(String.format(
+                    "Parcel ID: %s\nWeight: %.2f kg\nDimensions: %s\nStatus: %s\nDays in Depot: %d",
+                    currentParcel.getParcelID(),
+                    currentParcel.getWeight(),
+                    currentParcel.getDimensions(),
+                    currentParcel.getStatus(),
+                    currentParcel.getDaysInDepot()
+            ));
         }
     }
 
@@ -37,4 +45,3 @@ public class CurrentParcelPanel extends JPanel {
         parcelDetailsArea.setText("No parcel currently being processed.");
     }
 }
-

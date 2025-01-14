@@ -2,6 +2,7 @@ package model;
 
 import util.Observable;
 
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 
@@ -31,6 +32,22 @@ public class QueueOfCustomers extends Observable {
     }
 
     public List<Customer> getCustomerQueue() {
-        return new LinkedList<>(customers);
+        return Collections.unmodifiableList(customers);
+    }
+
+    public boolean removeCustomerByParcelID(String parcelID) {
+        Customer toRemove = null;
+        for (Customer customer : customers) {
+            if (customer.getParcelID().equals(parcelID)) {
+                toRemove = customer;
+                break;
+            }
+        }
+        if (toRemove != null) {
+            customers.remove(toRemove);
+            notifyObservers("QueueOfCustomers");
+            return true;
+        }
+        return false;
     }
 }
