@@ -7,6 +7,7 @@ public class Parcel {
     private String status;         // "Pending" or "Collected"
     private int daysInDepot;
 
+    // Constructor for Parcel
     public Parcel(String parcelID, double weight, String dimensions, String status, int daysInDepot) {
         this.parcelID = parcelID;
         this.weight = weight;
@@ -15,6 +16,7 @@ public class Parcel {
         this.daysInDepot = daysInDepot;
     }
 
+    // Getters
     public String getParcelID() {
         return parcelID;
     }
@@ -35,6 +37,7 @@ public class Parcel {
         return daysInDepot;
     }
 
+    // Setters
     public void setWeight(double weight) {
         this.weight = weight;
     }
@@ -51,6 +54,7 @@ public class Parcel {
         this.daysInDepot = daysInDepot;
     }
 
+    // Returns a string of the parcel
     @Override
     public String toString() {
         return "Parcel{" + "parcelID='" + parcelID + '\'' + ", weight=" + weight + ", dimensions='" + dimensions + '\'' + ", status='" + status + '\'' + ", daysInDepot=" + daysInDepot + '}';

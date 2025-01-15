@@ -9,8 +9,11 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 public class WorkerUIHelper {
+    private static final Log log = Log.getInstance();
 
+    // Displays a confirmation popup for parcel collection
     public static void showCollectionPopup(java.awt.Component parent, Manager manager, Parcel parcel, Runnable onConfirm) {
+        log.logInfo("Displaying collection popup for parcel: " + parcel.getParcelID());
         double totalFee = manager.getWorker().calculateFee(parcel);
         double discount = manager.getWorker().calculateDiscount(parcel.getParcelID(), totalFee);
         double finalFee = totalFee - discount;
@@ -22,35 +25,45 @@ public class WorkerUIHelper {
 
         int choice = JOptionPane.showConfirmDialog(parent, feeDetails, "Confirm Collection", JOptionPane.YES_NO_OPTION);
         if (choice == JOptionPane.YES_OPTION) {
-            Log.getInstance().logEvent("Parcel collection confirmed: " + parcel.getParcelID() + ". Final Fee: £" + String.format("%.2f", finalFee));
+            log.logInfo("Parcel collection confirmed: " + parcel.getParcelID() + ". Final Fee: £" + String.format("%.2f", finalFee));
             onConfirm.run();
         } else {
-            Log.getInstance().logEvent("Parcel collection canceled: " + parcel.getParcelID());
+            log.logInfo("Parcel collection canceled: " + parcel.getParcelID());
         }
     }
 
+
+    // Generates a report for the depot system and saves it to a file
     public static void generateReport(java.awt.Component parent, Manager manager) {
+        log.logInfo("Generating depot system report.");
         String dateTime = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
-        manager.generateReport("DepotSystemReport_" + dateTime + ".txt");
+        String reportFilename = "DepotSystemReport_" + dateTime + ".txt";
+        manager.generateReport(reportFilename);
+        log.logInfo("Report generated successfully: " + reportFilename);
         JOptionPane.showMessageDialog(parent, "Report generated successfully!", "Report", JOptionPane.INFORMATION_MESSAGE);
     }
 
-    public static void showFeesAndDiscounts(java.awt.Component parent) {
-        String feeStructure = """
-                    Fee Structure:
-                    -----------------------------
-                    Base Fee: £5.00
-                    Weight Fee: £0.50 per kg
-                    Size Fee: (if any) e.g., £0.001 per cm^3
-                    Depot Fee: £0.20 per day
-                
-                    Discounts:
-                    -----------------------------
-                    - Parcel IDs starting with 'X' and ending with '0': 20% discount
-                    - Parcel IDs starting with 'X' and ending with '5': 10% discount
-                    - Parcel IDs starting with 'C': 5% discount
-                """;
 
+    // Displays the fee structure and discount rules for the depot system
+    public static void showFeesAndDiscounts(java.awt.Component parent) {
+        log.logInfo("Displaying fee structure and discounts.");
+
+        //Display the fee structure and discount
+        String feeStructure = """
+                Fee Structure:
+                -----------------------------
+                Base Fee: £5.00
+                Weight Fee: £0.50 per kg
+                Depot Fee: £0.20 per day
+
+                Discounts:
+                -----------------------------
+                - Parcel IDs starting with 'X' and ending with '0': 20% discount
+                - Parcel IDs starting with 'X' and ending with '5': 10% discount
+                - Parcel IDs starting with 'C': 5% discount
+            """;
+
+        //Show the fee structure to the user in a popup
         JOptionPane.showMessageDialog(parent, feeStructure, "Fees and Discounts", JOptionPane.INFORMATION_MESSAGE);
     }
 }

@@ -15,13 +15,17 @@ import java.util.List;
 public class CustomersPanel extends JPanel implements Observer {
     private Manager manager;
     private WorkerUI workerUI;
+    private Log log = Log.getInstance();
 
     private DefaultTableModel customerTableModel;
     private JTable customerTable;
 
+    // Constructor for CustomerPanel
     public CustomersPanel(Manager manager, WorkerUI workerUI) {
         this.manager = manager;
         this.workerUI = workerUI;
+
+        log.logInfo("Initializing CustomersPanel.");
 
         manager.getQueueOfCustomers().addObserver(this);
 
@@ -52,14 +56,28 @@ public class CustomersPanel extends JPanel implements Observer {
 
         add(buttonPanel, BorderLayout.SOUTH);
 
-        processNextButton.addActionListener(e -> processNextCustomer());
-        generateReportButton.addActionListener(e -> WorkerUIHelper.generateReport(this, manager));
-        viewFeesButton.addActionListener(e -> WorkerUIHelper.showFeesAndDiscounts(this));
-        addCustomerButton.addActionListener(e -> addCustomerToQueue()); // Listener for new button
+        processNextButton.addActionListener(e -> {
+            log.logInfo("Process Next Customer button clicked.");
+            processNextCustomer();
+        });
+        generateReportButton.addActionListener(e -> {
+            log.logInfo("Generate Report button clicked.");
+            WorkerUIHelper.generateReport(this, manager);
+        });
+        viewFeesButton.addActionListener(e -> {
+            log.logInfo("View Fees button clicked.");
+            WorkerUIHelper.showFeesAndDiscounts(this);
+        });
+        addCustomerButton.addActionListener(e -> {
+            log.logInfo("Add Customer to Queue button clicked.");
+            addCustomerToQueue();
+        });
 
         refreshCustomerTable();
+        log.logInfo("CustomersPanel initialized successfully.");
     }
 
+    // Updates the UI based on notifications from observable objects.
     @Override
     public void update(String observableType) {
         if ("QueueOfCustomers".equals(observableType)) {
@@ -67,29 +85,41 @@ public class CustomersPanel extends JPanel implements Observer {
         }
     }
 
+    // Refreshes the customer table to reflect the current state of the customer queue.
     private void refreshCustomerTable() {
+        log.logInfo("Refreshing customer table...");
         customerTableModel.setRowCount(0);
+
+        int customerCount = 0;
         for (Customer c : manager.getQueueOfCustomers().getCustomerQueue()) {
             customerTableModel.addRow(new Object[]{c.getQueueNumber(), c.getName(), c.getParcelID()});
+            log.logInfo("Added customer to table: QueueNumber=" + c.getQueueNumber() + ", Name=" + c.getName() + ", ParcelID=" + c.getParcelID());
+            customerCount++;
         }
+
+        log.logInfo("Customer table refreshed. Total customers displayed: " + customerCount);
     }
 
+    // Processes the next customer in the queue.
     private void processNextCustomer() {
+        log.logInfo("Process Next Customer initiated.");
+
         if (manager.getQueueOfCustomers().isEmpty()) {
+            log.logInfo("No customers in the queue.");
             JOptionPane.showMessageDialog(this, "No customers in the queue.", "Information", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
 
-        // Get the customer at the front of the queue
         Customer currentCustomer = manager.getQueueOfCustomers().getCustomer();
         Parcel currentParcel = manager.getParcelMap().findParcel(currentCustomer.getParcelID());
 
         if (currentParcel == null) {
+            log.logError("Parcel not found for customer: " + currentCustomer.getName() + " [Parcel ID: " + currentCustomer.getParcelID() + "]");
             JOptionPane.showMessageDialog(this, "Parcel not found for the customer.", "Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
-        // Display the fee structure
+        log.logInfo("Processing customer: " + currentCustomer.getName() + " [Parcel ID: " + currentCustomer.getParcelID() + "]");
         double totalFee = manager.getWorker().calculateFee(currentParcel);
         double discount = manager.getWorker().calculateDiscount(currentParcel.getParcelID(), totalFee);
         double finalFee = totalFee - discount;
@@ -112,7 +142,6 @@ public class CustomersPanel extends JPanel implements Observer {
         );
 
         if (initialChoice == JOptionPane.YES_OPTION) {
-            // Confirm processing the customer
             int processChoice = JOptionPane.showConfirmDialog(
                     this,
                     "Do you want to process this customer?",
@@ -121,35 +150,24 @@ public class CustomersPanel extends JPanel implements Observer {
             );
 
             if (processChoice == JOptionPane.YES_OPTION) {
-                // Process the parcel and mark it as collected
-                double fee = manager.getWorker().calculateFee(currentParcel) - manager.getWorker().calculateDiscount(currentParcel.getParcelID(), manager.getWorker().calculateFee(currentParcel));
+                log.logInfo("Processing parcel: " + currentParcel.getParcelID());
+                double fee = finalFee;
                 currentParcel.setStatus("Collected");
                 manager.getCollectedParcels().add(currentParcel);
                 manager.addToTotalFees(fee);
-
-                // Update the CurrentParcelPanel
                 workerUI.showCurrentParcel(currentParcel);
 
-                // Remove the customer from the queue using the new method
                 boolean removed = manager.getQueueOfCustomers().removeCustomerByParcelID(currentCustomer.getParcelID());
                 if (removed) {
-                    Log.getInstance().logEvent("Customer removed from queue: " + currentCustomer.getName() + " [Parcel ID: " + currentCustomer.getParcelID() + "]");
+                    log.logInfo("Customer removed from queue: " + currentCustomer.getName() + " [Parcel ID: " + currentCustomer.getParcelID() + "]");
                     JOptionPane.showMessageDialog(
                             this,
                             String.format("Parcel processed successfully.\nFee: £%.2f\nCustomer '%s' removed from the queue.", fee, currentCustomer.getName()),
                             "Success",
                             JOptionPane.INFORMATION_MESSAGE
                     );
-                } else {
-                    JOptionPane.showMessageDialog(
-                            this,
-                            String.format("Parcel processed successfully.\nFee: £%.2f", fee),
-                            "Success",
-                            JOptionPane.INFORMATION_MESSAGE
-                    );
                 }
 
-                // Prompt to generate receipt
                 int receiptChoice = JOptionPane.showConfirmDialog(
                         this,
                         "Do you want to generate a receipt?",
@@ -158,21 +176,21 @@ public class CustomersPanel extends JPanel implements Observer {
                 );
 
                 if (receiptChoice == JOptionPane.YES_OPTION) {
+                    log.logInfo("Generating receipt for Parcel ID: " + currentParcel.getParcelID());
                     String receipt = manager.generateReceipt(currentParcel, fee);
                     JOptionPane.showMessageDialog(this, receipt, "Receipt", JOptionPane.INFORMATION_MESSAGE);
                 }
 
-                Log.getInstance().logEvent("Parcel processed: " + currentParcel.getParcelID() + ". Final Fee: £" + String.format("%.2f", fee));
-
-                // Refresh the customer table and parcel map observers
+                log.logInfo("Parcel processed: " + currentParcel.getParcelID() + ". Final Fee: £" + String.format("%.2f", fee));
                 refreshCustomerTable();
                 manager.getParcelMap().notifyParcelMapObservers("ParcelMap");
             } else {
+                log.logInfo("Processing cancelled for customer: " + currentCustomer.getName());
                 manager.getQueueOfCustomers().add(currentCustomer);
                 refreshCustomerTable();
             }
         } else if (initialChoice == JOptionPane.NO_OPTION) {
-            // If "No", give the option to remove or move to the back
+            log.logInfo("User chose not to proceed with customer: " + currentCustomer.getName());
             Object[] options = {"Remove from Queue", "Move to Back"};
             int queueChoice = JOptionPane.showOptionDialog(
                     this,
@@ -186,10 +204,9 @@ public class CustomersPanel extends JPanel implements Observer {
             );
 
             if (queueChoice == 0) {
-                // Remove customer from the queue
                 boolean removed = manager.getQueueOfCustomers().removeCustomerByParcelID(currentCustomer.getParcelID());
                 if (removed) {
-                    Log.getInstance().logEvent("Customer removed from queue: " + currentCustomer.getName() + " [Parcel ID: " + currentCustomer.getParcelID() + "]");
+                    log.logInfo("Customer removed from queue: " + currentCustomer.getName() + " [Parcel ID: " + currentCustomer.getParcelID() + "]");
                     JOptionPane.showMessageDialog(
                             this,
                             String.format("Customer %s has been removed from the queue.", currentCustomer.getName()),
@@ -197,6 +214,7 @@ public class CustomersPanel extends JPanel implements Observer {
                             JOptionPane.INFORMATION_MESSAGE
                     );
                 } else {
+                    log.logError("Failed to remove customer: " + currentCustomer.getName() + " [Parcel ID: " + currentCustomer.getParcelID() + "]");
                     JOptionPane.showMessageDialog(
                             this,
                             "Failed to remove the customer from the queue.",
@@ -205,9 +223,8 @@ public class CustomersPanel extends JPanel implements Observer {
                     );
                 }
             } else if (queueChoice == 1) {
-                // Move customer to the back of the queue
                 manager.getQueueOfCustomers().add(currentCustomer);
-                Log.getInstance().logEvent("Customer moved to back of queue: " + currentCustomer.getName() + " [Parcel ID: " + currentCustomer.getParcelID() + "]");
+                log.logInfo("Customer moved to back of queue: " + currentCustomer.getName() + " [Parcel ID: " + currentCustomer.getParcelID() + "]");
                 JOptionPane.showMessageDialog(
                         this,
                         String.format("Customer %s has been moved to the back of the queue.", currentCustomer.getName()),
@@ -216,12 +233,14 @@ public class CustomersPanel extends JPanel implements Observer {
                 );
             }
 
-            // Refresh the customer queue
             refreshCustomerTable();
         }
     }
 
+    // Initiates the process for adding a new customer to the queue.
     private void addCustomerToQueue() {
+        log.logInfo("Initiating Add Customer to Queue process.");
+
         JTextField nameField = new JTextField();
         JTextField parcelIdField = new JTextField();
 
@@ -233,6 +252,8 @@ public class CustomersPanel extends JPanel implements Observer {
             String parcelID = parcelIdField.getText().trim();
 
             try {
+                log.logInfo("Attempting to add customer: Name=" + name + ", Parcel ID=" + parcelID);
+
                 // Delegate validation and addition logic to Manager
                 manager.addCustomer(name, parcelID);
 
@@ -241,13 +262,20 @@ public class CustomersPanel extends JPanel implements Observer {
                         "Customer added successfully to the queue!",
                         "Success",
                         JOptionPane.INFORMATION_MESSAGE);
+                log.logInfo("Customer added successfully to the queue: Name=" + name + ", Parcel ID=" + parcelID);
+
+                // Refresh the table after addition
+                refreshCustomerTable();
             } catch (IllegalArgumentException ex) {
+                log.logError("Failed to add customer: " + ex.getMessage());
                 // Display error message from the Manager's validation
                 JOptionPane.showMessageDialog(this,
                         ex.getMessage(),
                         "Error",
                         JOptionPane.ERROR_MESSAGE);
             }
+        } else {
+            log.logInfo("Add Customer to Queue process canceled by the user.");
         }
     }
 }

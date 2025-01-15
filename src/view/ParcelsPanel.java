@@ -5,7 +5,6 @@ import model.Customer;
 import model.Parcel;
 import util.Log;
 import util.Observer;
-import util.ParcelValidationException;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -18,10 +17,13 @@ public class ParcelsPanel extends JPanel implements Observer {
     private WorkerUI workerUI;
     private DefaultTableModel parcelTableModel;
     private JTable parcelTable;
+    private Log log = Log.getInstance();
 
     public ParcelsPanel(Manager manager, WorkerUI workerUI) {
         this.manager = manager;
         this.workerUI = workerUI;
+
+        log.logInfo("Initializing ParcelsPanel.");
 
         // Observe ParcelMap changes
         manager.getParcelMap().addObserver(this);
@@ -32,7 +34,7 @@ public class ParcelsPanel extends JPanel implements Observer {
         parcelTableModel = new DefaultTableModel(new String[]{"ID", "Weight (KGs)", "Dimensions (WxHxL)", "Status", "Days in Depot"}, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
-                return false; // All cells non-editable
+                return false; // All cells non editable
             }
         };
         parcelTable = new JTable(parcelTableModel);
@@ -58,16 +60,36 @@ public class ParcelsPanel extends JPanel implements Observer {
         add(buttonPanel, BorderLayout.SOUTH);
 
         // Listeners
-        processParcelButton.addActionListener(e -> processSelectedParcel());
-        editParcelButton.addActionListener(e -> editSelectedParcel());
-        searchParcelButton.addActionListener(e -> searchParcel());
-        refreshButton.addActionListener(e -> refreshParcelTable());
-        addParcelButton.addActionListener(e -> addParcel());
-        viewCollectedButton.addActionListener(e -> showCollectedParcels());
+        processParcelButton.addActionListener(e -> {
+            log.logInfo("Process Selected Parcel button clicked.");
+            processSelectedParcel();
+        });
+        editParcelButton.addActionListener(e -> {
+            log.logInfo("Edit Selected Parcel button clicked.");
+            editSelectedParcel();
+        });
+        searchParcelButton.addActionListener(e -> {
+            log.logInfo("Search Parcel button clicked.");
+            searchParcel();
+        });
+        refreshButton.addActionListener(e -> {
+            log.logInfo("Refresh Parcels button clicked.");
+            refreshParcelTable();
+        });
+        addParcelButton.addActionListener(e -> {
+            log.logInfo("Add Parcel button clicked.");
+            addParcel();
+        });
+        viewCollectedButton.addActionListener(e -> {
+            log.logInfo("View Collected Parcels button clicked.");
+            showCollectedParcels();
+        });
 
         refreshParcelTable();
+        log.logInfo("ParcelsPanel initialized successfully.");
     }
 
+    // Updates the view based on the type of observable change
     @Override
     public void update(String observableType) {
         if ("ParcelMap".equals(observableType)) {
@@ -75,23 +97,40 @@ public class ParcelsPanel extends JPanel implements Observer {
         }
     }
 
+    // Refreshes the parcel table by clearing and repopulating it with the latest data from the ParcelMap
     private void refreshParcelTable() {
-        parcelTableModel.setRowCount(0);
-        List<Parcel> allParcels = manager.getParcelMap().getAllParcels();
-        for (Parcel p : allParcels) {
-            parcelTableModel.addRow(new Object[]{
-                    p.getParcelID(),
-                    p.getWeight(),
-                    p.getDimensions(),
-                    p.getStatus(),
-                    p.getDaysInDepot()
-            });
+        log.logInfo("Refreshing parcel table...");
+        try {
+            parcelTableModel.setRowCount(0);
+            List<Parcel> allParcels = manager.getParcelMap().getAllParcels();
+
+            for (Parcel p : allParcels) {
+                parcelTableModel.addRow(new Object[]{
+                        p.getParcelID(),
+                        p.getWeight(),
+                        p.getDimensions(),
+                        p.getStatus(),
+                        p.getDaysInDepot()
+                });
+                log.logInfo("Added parcel to table: ID=" + p.getParcelID() +
+                        ", Weight=" + p.getWeight() +
+                        ", Dimensions=" + p.getDimensions() +
+                        ", Status=" + p.getStatus() +
+                        ", DaysInDepot=" + p.getDaysInDepot());
+            }
+
+            log.logInfo("Parcel table refreshed successfully with " + allParcels.size() + " parcels.");
+        } catch (Exception e) {
+            log.logError("Error occurred while refreshing parcel table: " + e.getMessage());
         }
     }
 
+    // Processes the selected parcel from the table
     private void processSelectedParcel() {
+        log.logInfo("Initiating process for selected parcel.");
         int selectedRow = parcelTable.getSelectedRow(); // Get the selected row
         if (selectedRow == -1) {
+            log.logError("No parcel selected for processing.");
             JOptionPane.showMessageDialog(this, "Select a parcel to process.", "Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
@@ -100,14 +139,18 @@ public class ParcelsPanel extends JPanel implements Observer {
         Parcel selectedParcel = manager.getParcelMap().findParcel(parcelID);
 
         if (selectedParcel == null) {
+            log.logError("Parcel not found: ID=" + parcelID);
             JOptionPane.showMessageDialog(this, "Parcel not found.", "Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
         if ("Collected".equalsIgnoreCase(selectedParcel.getStatus())) {
+            log.logInfo("Parcel already collected: ID=" + parcelID);
             JOptionPane.showMessageDialog(this, "This parcel has already been collected.", "Information", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
+
+        log.logInfo("Processing parcel: ID=" + parcelID);
 
         // Find the associated customer in the queue (if any)
         Customer associatedCustomer = manager.getQueueOfCustomers().getCustomerQueue().stream()
@@ -118,6 +161,9 @@ public class ParcelsPanel extends JPanel implements Observer {
         double totalFee = manager.getWorker().calculateFee(selectedParcel);
         double discount = manager.getWorker().calculateDiscount(selectedParcel.getParcelID(), totalFee);
         double finalFee = totalFee - discount;
+
+        log.logInfo(String.format("Fee calculated for parcel: ID=%s, Total Fee=£%.2f, Discount=£%.2f, Final Fee=£%.2f",
+                parcelID, totalFee, discount, finalFee));
 
         String feeDetails = String.format(
                 "Parcel ID: %s\nWeight: %.2f kg\nBase Fee: £5.00\nWeight Fee: £%.2f\nDepot Fee: £%.2f\nDiscount: £%.2f\nTotal Fee: £%.2f\n\nConfirm collection?",
@@ -137,6 +183,8 @@ public class ParcelsPanel extends JPanel implements Observer {
         );
 
         if (initialChoice == JOptionPane.YES_OPTION) {
+            log.logInfo("User confirmed parcel collection: ID=" + parcelID);
+
             int processChoice = JOptionPane.showConfirmDialog(
                     this,
                     "Do you want to process this parcel?",
@@ -145,6 +193,7 @@ public class ParcelsPanel extends JPanel implements Observer {
             );
 
             if (processChoice == JOptionPane.YES_OPTION) {
+                log.logInfo("Processing confirmed for parcel: ID=" + parcelID);
                 selectedParcel.setStatus("Collected");
                 manager.getCollectedParcels().add(selectedParcel);
                 manager.addToTotalFees(finalFee);
@@ -154,7 +203,7 @@ public class ParcelsPanel extends JPanel implements Observer {
                 if (associatedCustomer != null) {
                     boolean removed = manager.getQueueOfCustomers().removeCustomerByParcelID(parcelID);
                     if (removed) {
-                        Log.getInstance().logEvent("Customer removed from queue: " + associatedCustomer.getName() + " [Parcel ID: " + associatedCustomer.getParcelID() + "]");
+                        log.logInfo("Customer removed from queue: Name=" + associatedCustomer.getName() + ", ParcelID=" + parcelID);
                         JOptionPane.showMessageDialog(
                                 this,
                                 String.format("Parcel processed successfully.\nFee: £%.2f\nCustomer '%s' removed from the queue.", finalFee, associatedCustomer.getName()),
@@ -172,15 +221,19 @@ public class ParcelsPanel extends JPanel implements Observer {
                 );
 
                 if (receiptChoice == JOptionPane.YES_OPTION) {
+                    log.logInfo("Receipt generation initiated for parcel: ID=" + parcelID);
                     String receipt = manager.generateReceipt(selectedParcel, finalFee);
                     JOptionPane.showMessageDialog(this, receipt, "Receipt", JOptionPane.INFORMATION_MESSAGE);
+                    log.logInfo("Receipt generated for parcel: ID=" + parcelID);
                 }
 
-                Log.getInstance().logEvent("Parcel processed: " + selectedParcel.getParcelID() + ". Final Fee: £" + String.format("%.2f", finalFee));
+                log.logInfo("Parcel processing completed: ID=" + parcelID + ", Final Fee=£" + String.format("%.2f", finalFee));
                 refreshParcelTable();
                 manager.getParcelMap().notifyParcelMapObservers("ParcelMap");
             }
         } else {
+            log.logInfo("User canceled parcel collection for: ID=" + parcelID);
+
             Object[] options = {"Remove from Queue", "Move to Back"};
             int queueChoice = JOptionPane.showOptionDialog(
                     this,
@@ -196,7 +249,7 @@ public class ParcelsPanel extends JPanel implements Observer {
             if (queueChoice == 0 && associatedCustomer != null) {
                 boolean removed = manager.getQueueOfCustomers().removeCustomerByParcelID(parcelID);
                 if (removed) {
-                    Log.getInstance().logEvent("Customer removed from queue: " + associatedCustomer.getName() + " [Parcel ID: " + associatedCustomer.getParcelID() + "]");
+                    log.logInfo("Customer removed from queue: Name=" + associatedCustomer.getName() + ", ParcelID=" + parcelID);
                     JOptionPane.showMessageDialog(
                             this,
                             String.format("Customer '%s' has been removed from the queue.", associatedCustomer.getName()),
@@ -208,7 +261,7 @@ public class ParcelsPanel extends JPanel implements Observer {
                 boolean removed = manager.getQueueOfCustomers().removeCustomerByParcelID(parcelID);
                 if (removed) {
                     manager.getQueueOfCustomers().add(associatedCustomer);
-                    Log.getInstance().logEvent("Customer moved to back of queue: " + associatedCustomer.getName() + " [Parcel ID: " + associatedCustomer.getParcelID() + "]");
+                    log.logInfo("Customer moved to back of queue: Name=" + associatedCustomer.getName() + ", ParcelID=" + parcelID);
                     JOptionPane.showMessageDialog(
                             this,
                             String.format("Customer '%s' has been moved to the back of the queue.", associatedCustomer.getName()),
@@ -216,6 +269,7 @@ public class ParcelsPanel extends JPanel implements Observer {
                             JOptionPane.INFORMATION_MESSAGE
                     );
                 } else {
+                    log.logError("Failed to move customer to the back of the queue: Name=" + associatedCustomer.getName() + ", ParcelID=" + parcelID);
                     JOptionPane.showMessageDialog(
                             this,
                             "Failed to move the customer to the back of the queue.",
@@ -230,7 +284,10 @@ public class ParcelsPanel extends JPanel implements Observer {
         }
     }
 
+    // Handles the process of adding and validating a new parcel to the system
     private void addParcel() {
+        log.logInfo("Initiating add parcel process.");
+
         JTextField parcelIDField = new JTextField();
         JTextField weightField = new JTextField();
         JTextField widthField = new JTextField();
@@ -256,9 +313,12 @@ public class ParcelsPanel extends JPanel implements Observer {
             String lengthText = lengthField.getText().trim();
             String daysText = daysField.getText().trim();
 
+            log.logInfo("Collecting parcel data from user input.");
+
             // Check for empty fields
             if (pid.isEmpty() || weightText.isEmpty() || widthText.isEmpty() ||
                     heightText.isEmpty() || lengthText.isEmpty() || daysText.isEmpty()) {
+                log.logError("Validation failed: Missing required fields.");
                 JOptionPane.showMessageDialog(this, "All fields are required.", "Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
@@ -275,36 +335,56 @@ public class ParcelsPanel extends JPanel implements Observer {
                 days = Integer.parseInt(daysText);
 
                 if (weight <= 0 || width <= 0 || height <= 0 || length <= 0 || days < 0) {
+                    log.logError("Validation failed: Invalid numeric inputs.");
                     JOptionPane.showMessageDialog(this, "Weight, Width, Height, and Length must be positive numbers. Days in Depot cannot be negative.", "Invalid Input", JOptionPane.ERROR_MESSAGE);
                     return;
                 }
             } catch (NumberFormatException e) {
+                log.logError("Validation failed: Non-numeric inputs detected.");
                 JOptionPane.showMessageDialog(this, "Please enter valid numeric values for Weight, Width, Height, Length, and Days in Depot.", "Invalid Input", JOptionPane.ERROR_MESSAGE);
                 return;
             }
+
+            log.logInfo("Validation passed. Preparing parcel for addition.");
 
             // Concatenate dimensions
             String dimensions = String.format("%.2fx%.2fx%.2f", width, height, length);
 
             Parcel newParcel = new Parcel(pid, weight, dimensions, "Pending", days);
+            log.logInfo("New parcel created: " + newParcel.toString());
+
             manager.addNewParcel(newParcel);
+            log.logInfo("Parcel added to the system: ID=" + pid);
+
             refreshParcelTable();
+            log.logInfo("Parcel table refreshed after addition.");
+        } else {
+            log.logInfo("Add parcel process canceled by user.");
         }
     }
 
+    // Handles the process of editing and validating an existing parcel in the system
     private void editSelectedParcel() {
+        log.logInfo("Initiating edit parcel process.");
         int selectedRow = parcelTable.getSelectedRow();
+
         if (selectedRow == -1) {
+            log.logError("No parcel selected for editing.");
             JOptionPane.showMessageDialog(this, "Select a parcel to edit.", "Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
         String parcelID = (String) parcelTableModel.getValueAt(selectedRow, 0);
+        log.logInfo("Selected parcel for editing: ID=" + parcelID);
+
         Parcel parcel = manager.searchParcel(parcelID);
         if (parcel == null) {
+            log.logError("Parcel not found: ID=" + parcelID);
             JOptionPane.showMessageDialog(this, "Parcel not found.", "Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
+
+        log.logInfo("Parcel found: " + parcel);
 
         // Extract existing dimensions
         String[] dims = parcel.getDimensions().split("x");
@@ -329,14 +409,16 @@ public class ParcelsPanel extends JPanel implements Observer {
 
         int option = JOptionPane.showConfirmDialog(this, msg, "Edit Parcel", JOptionPane.OK_CANCEL_OPTION);
         if (option == JOptionPane.OK_OPTION) {
+            log.logInfo("User confirmed parcel edits for ID=" + parcelID);
+
             String weightText = weightField.getText().trim();
             String widthText = widthField.getText().trim();
             String heightText = heightField.getText().trim();
             String lengthText = lengthField.getText().trim();
             String daysText = daysField.getText().trim();
 
-            if (weightText.isEmpty() || widthText.isEmpty() ||
-                    heightText.isEmpty() || lengthText.isEmpty() || daysText.isEmpty()) {
+            if (weightText.isEmpty() || widthText.isEmpty() || heightText.isEmpty() || lengthText.isEmpty() || daysText.isEmpty()) {
+                log.logError("Validation failed: Missing required fields for ID=" + parcelID);
                 JOptionPane.showMessageDialog(this, "All fields are required.", "Error", JOptionPane.ERROR_MESSAGE);
                 return;
             }
@@ -352,10 +434,12 @@ public class ParcelsPanel extends JPanel implements Observer {
                 days = Integer.parseInt(daysText);
 
                 if (weight <= 0 || width <= 0 || height <= 0 || length <= 0 || days < 0) {
+                    log.logError("Validation failed: Invalid numeric inputs for ID=" + parcelID);
                     JOptionPane.showMessageDialog(this, "Weight, Width, Height, and Length must be positive numbers. Days in Depot cannot be negative.", "Invalid Input", JOptionPane.ERROR_MESSAGE);
                     return;
                 }
             } catch (NumberFormatException e) {
+                log.logError("Validation failed: Non-numeric inputs detected for ID=" + parcelID);
                 JOptionPane.showMessageDialog(this, "Please enter valid numeric values for Weight, Width, Height, Length, and Days in Depot.", "Invalid Input", JOptionPane.ERROR_MESSAGE);
                 return;
             }
@@ -364,44 +448,94 @@ public class ParcelsPanel extends JPanel implements Observer {
             DecimalFormat df = new DecimalFormat("#.##");
             String newDimensions = df.format(width) + "x" + df.format(height) + "x" + df.format(length);
 
+            log.logInfo(String.format("Updating parcel: ID=%s, Weight=%.2f, Dimensions=%s, Days=%d", parcelID, weight, newDimensions, days));
+
             manager.updateParcel(parcelID, weight, newDimensions, days);
+            log.logInfo("Parcel updated successfully: ID=" + parcelID);
+
             refreshParcelTable();
+            log.logInfo("Parcel table refreshed after editing.");
+        } else {
+            log.logInfo("User canceled parcel edits for ID=" + parcelID);
         }
     }
 
+    // Handles the process of searching an existing parcel in the system
     private void searchParcel() {
+        log.logInfo("Initiating parcel search.");
         String searchTerm = JOptionPane.showInputDialog(this, "Enter Parcel ID to search:", "Search Parcel", JOptionPane.PLAIN_MESSAGE);
+
         if (searchTerm == null || searchTerm.trim().isEmpty()) {
+            log.logInfo("Parcel search canceled by user or input was empty.");
             return;
         }
 
+        log.logInfo("Searching for parcel with ID: " + searchTerm.trim());
+
         Parcel parcel = manager.getParcelMap().findParcel(searchTerm.trim());
         if (parcel == null) {
+            log.logError("Parcel not found: ID=" + searchTerm.trim());
             JOptionPane.showMessageDialog(this, "Parcel not found.", "Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
-        parcelTableModel.setRowCount(0);
-        parcelTableModel.addRow(new Object[]{parcel.getParcelID(), parcel.getWeight(), parcel.getDimensions(), parcel.getStatus(), parcel.getDaysInDepot()});
+        log.logInfo("Parcel found: " + parcel);
 
+        // Display the found parcel in the table
+        parcelTableModel.setRowCount(0);
+        parcelTableModel.addRow(new Object[]{
+                parcel.getParcelID(),
+                parcel.getWeight(),
+                parcel.getDimensions(),
+                parcel.getStatus(),
+                parcel.getDaysInDepot()
+        });
+        log.logInfo("Parcel details displayed in the table: ID=" + parcel.getParcelID());
+
+        // Update the CurrentParcelPanel with the found parcel
         workerUI.showCurrentParcel(parcel);
+        log.logInfo("Parcel displayed in CurrentParcelPanel: ID=" + parcel.getParcelID());
     }
 
+    // Displays a table of collected parcels to the user.
     private void showCollectedParcels() {
+        log.logInfo("Displaying collected parcels.");
+
         List<Parcel> collected = manager.getCollectedParcels();
 
-        DefaultTableModel collectedModel = new DefaultTableModel(new String[]{"ID", "Weight (KGs)", "Dimensions (WxHxL)", "Status", "Days in Depot"}, 0) {
+        if (collected.isEmpty()) {
+            log.logInfo("No collected parcels to display.");
+            JOptionPane.showMessageDialog(this, "No parcels have been collected yet.", "Information", JOptionPane.INFORMATION_MESSAGE);
+            return;
+        }
+
+        log.logInfo("Preparing table for displaying collected parcels.");
+
+        DefaultTableModel collectedModel = new DefaultTableModel(
+                new String[]{"ID", "Weight (KGs)", "Dimensions (WxHxL)", "Status", "Days in Depot"}, 0
+        ) {
             @Override
             public boolean isCellEditable(int row, int column) {
                 return false; // Make all cells non-editable
             }
         };
+
         for (Parcel p : collected) {
-            collectedModel.addRow(new Object[]{p.getParcelID(), p.getWeight(), p.getDimensions(), p.getStatus(), p.getDaysInDepot()});
+            collectedModel.addRow(new Object[]{
+                    p.getParcelID(),
+                    p.getWeight(),
+                    p.getDimensions(),
+                    p.getStatus(),
+                    p.getDaysInDepot()
+            });
         }
+
+        log.logInfo("Table populated with collected parcels. Total parcels: " + collected.size());
 
         JTable table = new JTable(collectedModel);
         JScrollPane scroll = new JScrollPane(table);
         JOptionPane.showMessageDialog(this, scroll, "Collected Parcels", JOptionPane.INFORMATION_MESSAGE);
+
+        log.logInfo("Collected parcels displayed to the user.");
     }
 }

@@ -8,6 +8,7 @@ public class DirectoryManager {
     public static final String RECEIPTS_DIR = "receipts";
     public static final String REPORTS_DIR = "reports";
 
+    // Retrieves a directory by its name, creating it if it does not already exist
     public static File getDirectory(String dirName) {
         File dir = new File(dirName);
         if (!dir.exists()) {

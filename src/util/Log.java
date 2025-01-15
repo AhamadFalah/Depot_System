@@ -9,22 +9,45 @@ import java.time.format.DateTimeFormatter;
 
 public class Log {
     private static Log instance;
-    private StringBuilder logBuffer = new StringBuilder();
+    private StringBuilder logBuffer;
 
+    // Constructor for Log
     private Log() {
+        logBuffer = new StringBuilder();
     }
 
-    public static Log getInstance() {
+    // Creates a new instance
+    public static synchronized Log getInstance() {
         if (instance == null) {
             instance = new Log();
         }
         return instance;
     }
 
-    public void logEvent(String event) {
-        logBuffer.append(event).append("\n");
+    // Logs info messages
+    public void logInfo(String message) {
+        logEvent("[INFO]", message);
     }
 
+    // Logs error messages
+    public void logError(String message) {
+        logEvent("[ERROR]", message);
+    }
+
+    // Logs the events with timestamps
+    private void logEvent(String level, String message) {
+        String timestamp = getTimestamp();
+        String formattedMessage = String.format("%s[%s] %s", level, timestamp, message);
+        logBuffer.append(formattedMessage).append("\n");
+        System.out.println(formattedMessage); // Optional: Log to console
+    }
+
+    // Generates the current timestamp
+    private String getTimestamp() {
+        return LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"));
+    }
+
+    // Saves the current log buffer to a file
     public synchronized void saveToFile(String fileName) {
         File logsDir = DirectoryManager.getDirectory(DirectoryManager.LOGS_DIR);
 
@@ -54,6 +77,7 @@ public class Log {
         }
     }
 
+    // Retrieves all log events currently in the log buffer
     public String getAllLogEvents() {
         return logBuffer.toString();
     }
