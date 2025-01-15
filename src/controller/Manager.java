@@ -27,11 +27,9 @@ public class Manager {
     private double totalFeesCollected = 0.0;
     private Log log = Log.getInstance();
 
-
     public QueueOfCustomers getQueueOfCustomers() {
         return queueOfCustomers;
     }
-
 
     public ParcelMap getParcelMap() {
         return parcelMap;
@@ -48,7 +46,6 @@ public class Manager {
     public List<Parcel> getCollectedParcels() {
         return collectedParcels;
     }
-
 
     public void addToTotalFees(double fee) {
         totalFeesCollected += fee;
@@ -367,28 +364,49 @@ public class Manager {
         return receipt.toString();
     }
 
-    public void addCustomerFromKeyboard(String name, String parcelID) {
+    public boolean addCustomer(String name, String parcelID) {
         log.logEvent("Attempting to add customer: " + name + " with Parcel ID: " + parcelID);
 
+        // Validate name
+        if (name == null || name.trim().isEmpty()) {
+            log.logEvent("Failed to add customer: Name is missing.");
+            throw new IllegalArgumentException("Customer name cannot be empty!");
+        }
+
+        // Validate Parcel ID format
+        if (parcelID == null || !parcelID.matches("^[XC]\\d{3}$")) {
+            log.logEvent("Failed to add customer: Invalid Parcel ID format - " + parcelID);
+            throw new IllegalArgumentException("Invalid Parcel ID format! It must start with 'X' or 'C' followed by 3 digits (e.g., X123 or C456).");
+        }
+
+        // Check if Parcel ID is already in the queue
+        boolean existsInQueue = queueOfCustomers.getCustomerQueue().stream()
+                .anyMatch(customer -> customer.getParcelID().equals(parcelID));
+        if (existsInQueue) {
+            log.logEvent("Failed to add customer: Parcel ID " + parcelID + " is already in the queue.");
+            throw new IllegalArgumentException("Parcel ID " + parcelID + " is already in the queue!");
+        }
+
+        // Verify if the parcel exists
         Parcel parcel = parcelMap.findParcel(parcelID);
         if (parcel == null) {
             log.logEvent("Failed to add customer: Parcel ID " + parcelID + " not found.");
-            JOptionPane.showMessageDialog(null, "Parcel not found!", "Error", JOptionPane.ERROR_MESSAGE);
-            return;
+            throw new IllegalArgumentException("Parcel with ID " + parcelID + " not found!");
         }
 
+        // Check if the parcel is already collected
         if ("Collected".equalsIgnoreCase(parcel.getStatus())) {
             log.logEvent("Failed to add customer: Parcel ID " + parcelID + " has already been collected.");
-            JOptionPane.showMessageDialog(null, "Parcel is already collected!", "Error", JOptionPane.ERROR_MESSAGE);
-            return;
+            throw new IllegalArgumentException("Parcel ID " + parcelID + " has already been collected!");
         }
 
+        // Add the customer to the queue
         int queueNumber = queueOfCustomers.size() + 1;
-        Customer newCustomer = new Customer(name, queueNumber, parcelID);
+        Customer newCustomer = new Customer(name.trim(), queueNumber, parcelID);
         queueOfCustomers.add(newCustomer);
 
-        log.logEvent("Customer successfully added: " + name + " with Parcel ID: " + parcelID);
-        JOptionPane.showMessageDialog(null, "Customer added successfully to the queue!", "Success", JOptionPane.INFORMATION_MESSAGE);
+        log.logEvent("Customer successfully added: " + name.trim() + " with Parcel ID: " + parcelID);
+        return true; // Indicate success
     }
 
 }

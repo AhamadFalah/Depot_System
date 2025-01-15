@@ -23,7 +23,7 @@ public class WorkerUI {
 
     private void initUI() {
         frame = new JFrame("Worker Interface");
-        frame.setSize(1200, 800);
+        frame.setSize(1500, 800);
         frame.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 
         frame.addWindowListener(new WindowAdapter() {

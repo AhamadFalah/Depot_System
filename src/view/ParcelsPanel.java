@@ -29,7 +29,12 @@ public class ParcelsPanel extends JPanel implements Observer {
         setLayout(new BorderLayout());
         setBorder(BorderFactory.createTitledBorder("Parcels"));
 
-        parcelTableModel = new DefaultTableModel(new String[]{"ID", "Weight", "Dimensions", "Status", "Days in Depot"}, 0);
+        parcelTableModel = new DefaultTableModel(new String[]{"ID", "Weight (KGs)", "Dimensions (WxHxL)", "Status", "Days in Depot"}, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false; // All cells non-editable
+            }
+        };
         parcelTable = new JTable(parcelTableModel);
         JScrollPane scrollPane = new JScrollPane(parcelTable);
         add(scrollPane, BorderLayout.CENTER);
@@ -40,7 +45,6 @@ public class ParcelsPanel extends JPanel implements Observer {
         JButton editParcelButton = new JButton("Edit Selected Parcel");
         JButton searchParcelButton = new JButton("Search Parcel");
         JButton refreshButton = new JButton("Refresh Parcels");
-
         JButton addParcelButton = new JButton("Add Parcel");
         JButton viewCollectedButton = new JButton("View Collected Parcels");
 
@@ -86,119 +90,143 @@ public class ParcelsPanel extends JPanel implements Observer {
     }
 
     private void processSelectedParcel() {
-        int selectedRow = parcelTable.getSelectedRow();
+        int selectedRow = parcelTable.getSelectedRow(); // Get the selected row
         if (selectedRow == -1) {
             JOptionPane.showMessageDialog(this, "Select a parcel to process.", "Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
-        String parcelID = (String) parcelTableModel.getValueAt(selectedRow, 0);
-        Parcel parcel = manager.getParcelMap().findParcel(parcelID);
-        if (parcel == null) {
+        String parcelID = (String) parcelTableModel.getValueAt(selectedRow, 0); // Get Parcel ID from the table
+        Parcel selectedParcel = manager.getParcelMap().findParcel(parcelID);
+
+        if (selectedParcel == null) {
             JOptionPane.showMessageDialog(this, "Parcel not found.", "Error", JOptionPane.ERROR_MESSAGE);
             return;
         }
 
-        if ("Collected".equalsIgnoreCase(parcel.getStatus())) {
+        if ("Collected".equalsIgnoreCase(selectedParcel.getStatus())) {
             JOptionPane.showMessageDialog(this, "This parcel has already been collected.", "Information", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
 
         // Find the associated customer in the queue (if any)
-        Customer associatedCustomer = null;
-        List<Customer> currentQueue = manager.getQueueOfCustomers().getCustomerQueue();
-        for (Customer customer : currentQueue) {
-            if (customer.getParcelID().equals(parcelID)) {
-                associatedCustomer = customer;
-                break;
-            }
-        }
+        Customer associatedCustomer = manager.getQueueOfCustomers().getCustomerQueue().stream()
+                .filter(customer -> customer.getParcelID().equals(parcelID))
+                .findFirst()
+                .orElse(null);
 
-        // Calculate fees and discounts
-        double totalFee = manager.getWorker().calculateFee(parcel);
-        double discount = manager.getWorker().calculateDiscount(parcel.getParcelID(), totalFee);
+        double totalFee = manager.getWorker().calculateFee(selectedParcel);
+        double discount = manager.getWorker().calculateDiscount(selectedParcel.getParcelID(), totalFee);
         double finalFee = totalFee - discount;
 
-        // Prepare fee details message
         String feeDetails = String.format(
                 "Parcel ID: %s\nWeight: %.2f kg\nBase Fee: £5.00\nWeight Fee: £%.2f\nDepot Fee: £%.2f\nDiscount: £%.2f\nTotal Fee: £%.2f\n\nConfirm collection?",
-                parcel.getParcelID(),
-                parcel.getWeight(),
-                parcel.getWeight() * 0.5,
-                parcel.getDaysInDepot() * 0.2,
+                selectedParcel.getParcelID(),
+                selectedParcel.getWeight(),
+                selectedParcel.getWeight() * 0.5,
+                selectedParcel.getDaysInDepot() * 0.2,
                 discount,
                 finalFee
         );
 
-        // Show confirmation dialog
-        int choice = JOptionPane.showConfirmDialog(
+        int initialChoice = JOptionPane.showConfirmDialog(
                 this,
                 feeDetails,
                 "Confirm Parcel Collection",
                 JOptionPane.YES_NO_OPTION
         );
 
-        if (choice == JOptionPane.YES_OPTION) {
-            // Proceed with processing the parcel
-            // Update parcel status to "Collected"
-            parcel.setStatus("Collected");
-            manager.getCollectedParcels().add(parcel);
-            manager.addToTotalFees(finalFee);
+        if (initialChoice == JOptionPane.YES_OPTION) {
+            int processChoice = JOptionPane.showConfirmDialog(
+                    this,
+                    "Do you want to process this parcel?",
+                    "Confirm Processing",
+                    JOptionPane.YES_NO_OPTION
+            );
 
-            // Update the CurrentParcelPanel
-            workerUI.showCurrentParcel(parcel);
+            if (processChoice == JOptionPane.YES_OPTION) {
+                selectedParcel.setStatus("Collected");
+                manager.getCollectedParcels().add(selectedParcel);
+                manager.addToTotalFees(finalFee);
 
-            // If there's an associated customer, remove them from the queue using the new method
-            if (associatedCustomer != null) {
+                workerUI.showCurrentParcel(selectedParcel);
+
+                if (associatedCustomer != null) {
+                    boolean removed = manager.getQueueOfCustomers().removeCustomerByParcelID(parcelID);
+                    if (removed) {
+                        Log.getInstance().logEvent("Customer removed from queue: " + associatedCustomer.getName() + " [Parcel ID: " + associatedCustomer.getParcelID() + "]");
+                        JOptionPane.showMessageDialog(
+                                this,
+                                String.format("Parcel processed successfully.\nFee: £%.2f\nCustomer '%s' removed from the queue.", finalFee, associatedCustomer.getName()),
+                                "Success",
+                                JOptionPane.INFORMATION_MESSAGE
+                        );
+                    }
+                }
+
+                int receiptChoice = JOptionPane.showConfirmDialog(
+                        this,
+                        "Do you want to generate a receipt?",
+                        "Generate Receipt",
+                        JOptionPane.YES_NO_OPTION
+                );
+
+                if (receiptChoice == JOptionPane.YES_OPTION) {
+                    String receipt = manager.generateReceipt(selectedParcel, finalFee);
+                    JOptionPane.showMessageDialog(this, receipt, "Receipt", JOptionPane.INFORMATION_MESSAGE);
+                }
+
+                Log.getInstance().logEvent("Parcel processed: " + selectedParcel.getParcelID() + ". Final Fee: £" + String.format("%.2f", finalFee));
+                refreshParcelTable();
+                manager.getParcelMap().notifyParcelMapObservers("ParcelMap");
+            }
+        } else {
+            Object[] options = {"Remove from Queue", "Move to Back"};
+            int queueChoice = JOptionPane.showOptionDialog(
+                    this,
+                    "What would you like to do with the associated customer (if any)?",
+                    "Queue Options",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.QUESTION_MESSAGE,
+                    null,
+                    options,
+                    options[1]
+            );
+
+            if (queueChoice == 0 && associatedCustomer != null) {
                 boolean removed = manager.getQueueOfCustomers().removeCustomerByParcelID(parcelID);
                 if (removed) {
                     Log.getInstance().logEvent("Customer removed from queue: " + associatedCustomer.getName() + " [Parcel ID: " + associatedCustomer.getParcelID() + "]");
                     JOptionPane.showMessageDialog(
                             this,
-                            String.format("Parcel processed successfully.\nFee: £%.2f\nCustomer '%s' removed from the queue.", finalFee, associatedCustomer.getName()),
-                            "Success",
-                            JOptionPane.INFORMATION_MESSAGE
-                    );
-                } else {
-                    // This case should ideally not occur as we've already found the customer
-                    JOptionPane.showMessageDialog(
-                            this,
-                            String.format("Parcel processed successfully.\nFee: £%.2f\nHowever, associated customer could not be found in the queue.", finalFee),
-                            "Success",
+                            String.format("Customer '%s' has been removed from the queue.", associatedCustomer.getName()),
+                            "Customer Removed",
                             JOptionPane.INFORMATION_MESSAGE
                     );
                 }
-            } else {
-                JOptionPane.showMessageDialog(
-                        this,
-                        String.format("Parcel processed successfully.\nFee: £%.2f", finalFee),
-                        "Success",
-                        JOptionPane.INFORMATION_MESSAGE
-                );
+            } else if (queueChoice == 1 && associatedCustomer != null) {
+                boolean removed = manager.getQueueOfCustomers().removeCustomerByParcelID(parcelID);
+                if (removed) {
+                    manager.getQueueOfCustomers().add(associatedCustomer);
+                    Log.getInstance().logEvent("Customer moved to back of queue: " + associatedCustomer.getName() + " [Parcel ID: " + associatedCustomer.getParcelID() + "]");
+                    JOptionPane.showMessageDialog(
+                            this,
+                            String.format("Customer '%s' has been moved to the back of the queue.", associatedCustomer.getName()),
+                            "Customer Moved",
+                            JOptionPane.INFORMATION_MESSAGE
+                    );
+                } else {
+                    JOptionPane.showMessageDialog(
+                            this,
+                            "Failed to move the customer to the back of the queue.",
+                            "Error",
+                            JOptionPane.ERROR_MESSAGE
+                    );
+                }
             }
 
-            // Prompt to generate receipt
-            int receiptChoice = JOptionPane.showConfirmDialog(
-                    this,
-                    "Do you want to generate a receipt?",
-                    "Generate Receipt",
-                    JOptionPane.YES_NO_OPTION
-            );
-
-            if (receiptChoice == JOptionPane.YES_OPTION) {
-                String receipt = manager.generateReceipt(parcel, finalFee);
-                JOptionPane.showMessageDialog(this, receipt, "Receipt", JOptionPane.INFORMATION_MESSAGE);
-            }
-
-            // Log the processing event
-            Log.getInstance().logEvent("Parcel processed: " + parcel.getParcelID() + ". Final Fee: £" + String.format("%.2f", finalFee));
-
-            // Refresh the parcel table and notify observers
             refreshParcelTable();
             manager.getParcelMap().notifyParcelMapObservers("ParcelMap");
-        } else {
-            // If the worker chooses not to process, optionally handle it (e.g., log the decision)
-            Log.getInstance().logEvent("Parcel processing canceled: " + parcel.getParcelID());
         }
     }
 
@@ -341,8 +369,6 @@ public class ParcelsPanel extends JPanel implements Observer {
         }
     }
 
-
-
     private void searchParcel() {
         String searchTerm = JOptionPane.showInputDialog(this, "Enter Parcel ID to search:", "Search Parcel", JOptionPane.PLAIN_MESSAGE);
         if (searchTerm == null || searchTerm.trim().isEmpty()) {
@@ -361,11 +387,15 @@ public class ParcelsPanel extends JPanel implements Observer {
         workerUI.showCurrentParcel(parcel);
     }
 
-
     private void showCollectedParcels() {
         List<Parcel> collected = manager.getCollectedParcels();
 
-        DefaultTableModel collectedModel = new DefaultTableModel(new String[]{"ID", "Weight", "Dimensions", "Status", "Days in Depot"}, 0);
+        DefaultTableModel collectedModel = new DefaultTableModel(new String[]{"ID", "Weight (KGs)", "Dimensions (WxHxL)", "Status", "Days in Depot"}, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false; // Make all cells non-editable
+            }
+        };
         for (Parcel p : collected) {
             collectedModel.addRow(new Object[]{p.getParcelID(), p.getWeight(), p.getDimensions(), p.getStatus(), p.getDaysInDepot()});
         }

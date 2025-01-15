@@ -37,7 +37,12 @@ public class CustomerUI implements Observer {
             }
         });
 
-        customerTableModel = new DefaultTableModel(new String[]{"Queue Number", "Name", "Parcel ID"}, 0);
+        customerTableModel = new DefaultTableModel(new String[]{"Queue Number", "Name", "Parcel ID"}, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
         customerTable = new JTable(customerTableModel);
         JScrollPane scrollPane = new JScrollPane(customerTable);
         scrollPane.setBorder(BorderFactory.createTitledBorder("Customer Queue"));
@@ -95,9 +100,16 @@ public class CustomerUI implements Observer {
 
         int option = JOptionPane.showConfirmDialog(frame, message, "Add Customer to Queue", JOptionPane.OK_CANCEL_OPTION);
         if (option == JOptionPane.OK_OPTION) {
-            String name = nameField.getText();
-            String parcelID = parcelIdField.getText();
-            manager.addCustomerFromKeyboard(name, parcelID);
+            String name = nameField.getText().trim();
+            String parcelID = parcelIdField.getText().trim();
+
+            try {
+                manager.addCustomer(name, parcelID); // Delegate logic to the Manager
+                JOptionPane.showMessageDialog(frame, "Customer added successfully to the queue!", "Success", JOptionPane.INFORMATION_MESSAGE);
+            } catch (IllegalArgumentException ex) {
+                JOptionPane.showMessageDialog(frame, ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
+
 }

@@ -28,7 +28,12 @@ public class CustomersPanel extends JPanel implements Observer {
         setLayout(new BorderLayout());
         setBorder(BorderFactory.createTitledBorder("Customer Queue"));
 
-        customerTableModel = new DefaultTableModel(new String[]{"Queue Number", "Name", "Parcel ID"}, 0);
+        customerTableModel = new DefaultTableModel(new String[]{"Queue Number", "Name", "Parcel ID"}, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
         customerTable = new JTable(customerTableModel);
 
         JScrollPane scrollPane = new JScrollPane(customerTable);
@@ -38,16 +43,19 @@ public class CustomersPanel extends JPanel implements Observer {
         JButton processNextButton = new JButton("Process Next Customer");
         JButton generateReportButton = new JButton("Generate Report");
         JButton viewFeesButton = new JButton("View Fees");
+        JButton addCustomerButton = new JButton("Add Customer to Queue"); // New Button
 
         buttonPanel.add(processNextButton);
         buttonPanel.add(generateReportButton);
         buttonPanel.add(viewFeesButton);
+        buttonPanel.add(addCustomerButton); // Add to panel
 
         add(buttonPanel, BorderLayout.SOUTH);
 
         processNextButton.addActionListener(e -> processNextCustomer());
         generateReportButton.addActionListener(e -> WorkerUIHelper.generateReport(this, manager));
         viewFeesButton.addActionListener(e -> WorkerUIHelper.showFeesAndDiscounts(this));
+        addCustomerButton.addActionListener(e -> addCustomerToQueue()); // Listener for new button
 
         refreshCustomerTable();
     }
@@ -210,6 +218,36 @@ public class CustomersPanel extends JPanel implements Observer {
 
             // Refresh the customer queue
             refreshCustomerTable();
+        }
+    }
+
+    private void addCustomerToQueue() {
+        JTextField nameField = new JTextField();
+        JTextField parcelIdField = new JTextField();
+
+        Object[] message = {"Name:", nameField, "Parcel ID:", parcelIdField};
+
+        int option = JOptionPane.showConfirmDialog(this, message, "Add Customer to Queue", JOptionPane.OK_CANCEL_OPTION);
+        if (option == JOptionPane.OK_OPTION) {
+            String name = nameField.getText().trim();
+            String parcelID = parcelIdField.getText().trim();
+
+            try {
+                // Delegate validation and addition logic to Manager
+                manager.addCustomer(name, parcelID);
+
+                // Display success message
+                JOptionPane.showMessageDialog(this,
+                        "Customer added successfully to the queue!",
+                        "Success",
+                        JOptionPane.INFORMATION_MESSAGE);
+            } catch (IllegalArgumentException ex) {
+                // Display error message from the Manager's validation
+                JOptionPane.showMessageDialog(this,
+                        ex.getMessage(),
+                        "Error",
+                        JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
 }
